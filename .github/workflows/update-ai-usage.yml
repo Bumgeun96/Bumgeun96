@@ -84,7 +84,82 @@ jobs:
 
               return f"{value:,}"
 
-          # 가장 오래된 WakaTime 프로젝트 생성일을 찾습니다.
+          def create_chart(weeks, values):
+              width = 900
+              height = 300
+              left = 64
+              right = 24
+              top = 34
+              bottom = 56
+              chart_width = width - left - right
+              chart_height = height - top - bottom
+
+              maximum = max(values) if max(values) > 0 else 1
+
+              def x_position(index):
+                  return left + chart_width * index / (len(values) - 1)
+
+              def y_position(value):
+                  return top + chart_height * (1 - value / maximum)
+
+              points = " ".join(
+                  f"{x_position(index):.1f},{y_position(value):.1f}"
+                  for index, value in enumerate(values)
+              )
+
+              grid = []
+              for ratio in (0, 0.5, 1):
+                  value = maximum * ratio
+                  y = y_position(value)
+                  grid.append(
+                      f'<line x1="{left}" y1="{y:.1f}" '
+                      f'x2="{width - right}" y2="{y:.1f}" '
+                      'stroke="#30363d" stroke-width="1" />'
+                  )
+                  grid.append(
+                      f'<text x="{left - 10}" y="{y + 4:.1f}" '
+                      'text-anchor="end" class="axis">'
+                      f"{tokens(value)}</text>"
+                  )
+
+              labels = []
+              dots = []
+
+              for index, (week, value) in enumerate(zip(weeks, values)):
+                  x = x_position(index)
+                  y = y_position(value)
+
+                  labels.append(
+                      f'<text x="{x:.1f}" y="{height - 22}" '
+                      'text-anchor="middle" class="axis">'
+                      f"{week.strftime('%m/%d')}</text>"
+                  )
+
+                  dots.append(
+                      f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4.5" '
+                      'fill="#58a6ff" stroke="#0d1117" '
+                      'stroke-width="2" />'
+                  )
+
+              return f"""<svg xmlns="http://www.w3.org/2000/svg"
+                  width="{width}" height="{height}" viewBox="0 0 {width} {height}"
+                  role="img" aria-label="Weekly AI coding token usage">
+                <style>
+                  .title {{ fill: #f0f6fc; font: 600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+                  .subtitle {{ fill: #8b949e; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+                  .axis {{ fill: #8b949e; font: 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }}
+                </style>
+                <rect width="100%" height="100%" rx="12" fill="#0d1117" />
+                <text x="{left}" y="24" class="title">AI coding tokens — last 12 weeks</text>
+                <text x="{left}" y="48" class="subtitle">Codex / Claude combined</text>
+                {''.join(grid)}
+                <polyline points="{points}" fill="none" stroke="#58a6ff"
+                  stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+                {''.join(dots)}
+                {''.join(labels)}
+              </svg>
+              """
+
           projects = get_json(
               "https://api.wakatime.com/api/v1/users/current/projects"
           )
@@ -102,8 +177,19 @@ jobs:
           )
 
           today = date.today()
-          cursor = start_date
+          current_week = today - timedelta(days=today.weekday())
 
+          chart_weeks = [
+              current_week - timedelta(weeks=11 - index)
+              for index in range(12)
+          ]
+
+          weekly_tokens = {
+              week: 0
+              for week in chart_weeks
+          }
+
+          cursor = start_date
           chatgpt_seconds = 0
           ai_coding_input_tokens = 0
           ai_coding_output_tokens = 0
@@ -129,28 +215,41 @@ jobs:
               )
 
               for day in summaries:
+                  day_date_text = day.get("range", {}).get("date")
+                  day_date = (
+                      date.fromisoformat(day_date_text)
+                      if day_date_text
+                      else None
+                  )
+
                   for project in day.get("projects", []):
                       name = project.get("name", "")
                       total_seconds = project.get(
                           "total_seconds",
                           0,
                       )
-                      input_tokens = project.get(
-                          "ai_input_tokens",
-                          0,
+                      input_tokens = int(
+                          project.get("ai_input_tokens", 0) or 0
                       )
-                      output_tokens = project.get(
-                          "ai_output_tokens",
-                          0,
+                      output_tokens = int(
+                          project.get("ai_output_tokens", 0) or 0
                       )
+                      project_tokens = input_tokens + output_tokens
 
                       if "chatgpt" in name.casefold():
                           # ChatGPT 웹은 active time만 표시합니다.
                           chatgpt_seconds += total_seconds
                       else:
-                          # 나머지 AI 코딩 토큰은 Codex / Claude로 합산합니다.
                           ai_coding_input_tokens += input_tokens
                           ai_coding_output_tokens += output_tokens
+
+                          if day_date:
+                              week = day_date - timedelta(
+                                  days=day_date.weekday()
+                              )
+
+                              if week in weekly_tokens:
+                                  weekly_tokens[week] += project_tokens
 
               cursor = end_date + timedelta(days=1)
 
@@ -162,6 +261,20 @@ jobs:
               ai_coding_input_tokens + ai_coding_output_tokens
           )
 
+          chart_values = [
+              weekly_tokens[week]
+              for week in chart_weeks
+          ]
+
+          os.makedirs("assets", exist_ok=True)
+
+          with open(
+              "assets/ai-token-usage.svg",
+              "w",
+              encoding="utf-8",
+          ) as file:
+              file.write(create_chart(chart_weeks, chart_values))
+
           updated_at = datetime.now(
               timezone(timedelta(hours=9))
           ).strftime("%Y-%m-%d %H:%M KST")
@@ -169,6 +282,10 @@ jobs:
           print(
               "AI coding tokens:",
               ai_coding_total_tokens,
+          )
+          print(
+              "Weekly AI coding tokens:",
+              chart_values,
           )
 
           block = textwrap.dedent(
@@ -181,6 +298,8 @@ jobs:
               | --- | ---: |
               | ChatGPT (web) | {duration(chatgpt_seconds)} active time |
               | AI coding (Codex / Claude) | {tokens(ai_coding_total_tokens)} tokens |
+
+              ![Weekly AI coding token usage](assets/ai-token-usage.svg)
               """
           ).strip()
 
@@ -210,7 +329,7 @@ jobs:
           if git diff --quiet; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md
+          git add README.md assets/ai-token-usage.svg
           git commit -m "chore: update AI usage stats"
           git pull --rebase origin main
           git push origin HEAD:main
