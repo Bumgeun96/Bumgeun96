@@ -1,5 +1,8 @@
 ## Hi there 👋
+### 📊 My AI-Driven Development Stats
 
+<!-- 실시간 WakaTime 통계 그래프 카드 -->
+[![WakaTime Stats](https://vercel.app)](https://wakatime.com)
 <!--
 **Bumgeun96/Bumgeun96** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 
