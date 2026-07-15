@@ -8,7 +8,7 @@ I'm particularly interested in improving robot and autonomous-driving policies t
 
 | Tool | Metric |
 | --- | ---: |
-| ChatGPT (web) | 0h 37m active time |
+| ChatGPT (web) | 0h 57m active time |
 | Codex | 0 AI-generated lines changed |
 | Claude | 0 AI-generated lines changed |
 
