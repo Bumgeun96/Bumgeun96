@@ -2,7 +2,6 @@
 I'm a Ph.D. candidate at KAIST, working on reinforcement learning for autonomous driving and robotics.
 
 I'm particularly interested in improving robot and autonomous-driving policies through behavior cloning and reinforcement learning, with an emphasis on data-efficient and reliable decision-making.
-### 📊 My AI-Driven Development Stats
 
 <!-- AI_STATS:START -->
 ### 📊 AI tool use — all time
