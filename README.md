@@ -4,7 +4,7 @@
 
 <!-- 아래 코드가 통째로 이미지 카드와 클릭 링크를 만들어냅니다 -->
 [![WakaTime Stats](https://vercel.app)](https://wakatime.com)
-![WakaTime Stats](https://vercel.app)
+
 <!--
 **Bumgeun96/Bumgeun96** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 
