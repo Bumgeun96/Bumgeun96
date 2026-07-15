@@ -41,87 +41,104 @@ jobs:
           def get_json(url):
               request = urllib.request.Request(url, headers=headers)
               with urllib.request.urlopen(request, timeout=30) as response:
-                  return json.load(response)["data"]
+                  payload = json.load(response)
+
+              if "data" not in payload:
+                  raise RuntimeError(f"Unexpected WakaTime response: {payload}")
+
+              return payload["data"]
 
           def duration(seconds):
               minutes = int(round(float(seconds or 0))) // 60
               return f"{minutes // 60}h {minutes % 60:02d}m"
 
-          # Codex/Claude AI 코드 변경량
-          stats = get_json(
-              "https://api.wakatime.com/api/v1/users/current/stats/all_time"
-          )
+          def tokens(value):
+              value = int(value or 0)
 
-          print("AI agents:", stats.get("ai_agent_line_changes", {}))
+              if value >= 1_000_000:
+                  return f"{value / 1_000_000:.1f}M"
 
-          def agent_lines(name):
-              return sum(
-                  int(value or 0)
-                  for agent, value in stats.get(
-                      "ai_agent_line_changes", {}
-                  ).items()
-                  if name in agent.casefold()
-              )
+              if value >= 1_000:
+                  return f"{value / 1_000:.1f}K"
 
-          # WakaTime에 기록된 ChatGPT 프로젝트 정보 찾기
+              return f"{value:,}"
+
+          # 모든 WakaTime 프로젝트의 생성일 중 가장 이른 날부터
+          # 오늘까지의 일별 요약을 가져옵니다.
           projects = get_json(
               "https://api.wakatime.com/api/v1/users/current/projects"
           )
 
-          chatgpt = next(
-              (
-                  project
-                  for project in projects
-                  if "chatgpt" in project.get("name", "").casefold()
-              ),
-              None,
+          project_dates = [
+              project.get("created_at", "")[:10]
+              for project in projects
+              if project.get("created_at")
+          ]
+
+          start_date = min(project_dates) if project_dates else "2020-01-01"
+
+          query = urllib.parse.urlencode(
+              {
+                  "start": start_date,
+                  "end": date.today().isoformat(),
+              }
           )
 
-          # 프로젝트 생성일부터 오늘까지의 일별 요약을 합산
-          chatgpt_time = 0
-          if chatgpt:
-              project_name = chatgpt["name"]
-              start_date = chatgpt.get("created_at", "2020-01-01")[:10]
+          summaries = get_json(
+              "https://api.wakatime.com/api/v1/users/current/summaries?"
+              + query
+          )
 
-              query = urllib.parse.urlencode(
-                  {
-                      "start": start_date,
-                      "end": date.today().isoformat(),
-                      "project": project_name,
-                  }
-              )
+          chatgpt_seconds = 0
+          chatgpt_input_tokens = 0
+          chatgpt_output_tokens = 0
 
-              summaries = get_json(
-                  "https://api.wakatime.com/api/v1/users/current/summaries?"
-                  + query
-              )
+          ai_coding_input_tokens = 0
+          ai_coding_output_tokens = 0
 
-              chatgpt_time = sum(
-                  day.get("grand_total", {}).get("total_seconds", 0)
-                  for day in summaries
-              )
+          # ChatGPT 프로젝트는 별도 표시하고,
+          # 나머지 프로젝트에서 기록된 AI 토큰은 Codex / Claude AI coding으로 합산합니다.
+          for day in summaries:
+              for project in day.get("projects", []):
+                  name = project.get("name", "")
+                  total_seconds = project.get("total_seconds", 0)
+                  input_tokens = project.get("ai_input_tokens", 0)
+                  output_tokens = project.get("ai_output_tokens", 0)
 
-              print(
-                  f"ChatGPT project found: {project_name} "
-                  f"({chatgpt_time} seconds)"
-              )
-          else:
-              print("ChatGPT project was not found in WakaTime projects.")
+                  if "chatgpt" in name.casefold():
+                      chatgpt_seconds += total_seconds
+                      chatgpt_input_tokens += input_tokens
+                      chatgpt_output_tokens += output_tokens
+                  else:
+                      ai_coding_input_tokens += input_tokens
+                      ai_coding_output_tokens += output_tokens
 
-          codex = agent_lines("codex")
-          claude = agent_lines("claude")
-          total = int(stats.get("ai_line_changes_total", 0))
-          sessions = int(stats.get("ai_sessions", 0))
+          chatgpt_total_tokens = (
+              chatgpt_input_tokens + chatgpt_output_tokens
+          )
+
+          ai_coding_total_tokens = (
+              ai_coding_input_tokens + ai_coding_output_tokens
+          )
+
+          total_tokens = chatgpt_total_tokens + ai_coding_total_tokens
+
+          print(
+              "Token totals:",
+              {
+                  "chatgpt": chatgpt_total_tokens,
+                  "ai_coding": ai_coding_total_tokens,
+                  "total": total_tokens,
+              },
+          )
 
           block = f"""### 📊 AI tool use — all time
 
           | Tool | Metric |
           | --- | ---: |
-          | ChatGPT (web) | {duration(chatgpt_time)} active time |
-          | Codex | {codex:,} AI-generated lines changed |
-          | Claude | {claude:,} AI-generated lines changed |
-
-          _Total AI coding: {total:,} lines changed · {sessions:,} sessions._
+          | ChatGPT (web) | {duration(chatgpt_seconds)} active time · {tokens(chatgpt_total_tokens)} tokens |
+          | AI coding (Codex / Claude) | {tokens(ai_coding_total_tokens)} tokens |
+          | Total | {tokens(total_tokens)} tokens |
           """
 
           path = "README.md"
@@ -129,6 +146,11 @@ jobs:
 
           start = "<!-- AI_STATS:START -->"
           end = "<!-- AI_STATS:END -->"
+
+          if start not in text or end not in text:
+              raise RuntimeError(
+                  "README.md is missing AI_STATS markers."
+              )
 
           text = re.sub(
               re.escape(start) + r".*?" + re.escape(end),
