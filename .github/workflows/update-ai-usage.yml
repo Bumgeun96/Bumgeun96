@@ -25,7 +25,7 @@ jobs:
           auth = base64.b64encode(key.encode()).decode()
 
           request = urllib.request.Request(
-              "https://api.wakatime.com/api/v1/users/current/stats/last_7_days",
+              "https://api.wakatime.com/api/v1/users/current/stats/all_time",
               headers={"Authorization": f"Basic {auth}"},
           )
           with urllib.request.urlopen(request, timeout=30) as response:
@@ -53,7 +53,7 @@ jobs:
           total = int(stats.get("ai_line_changes_total", 0))
           sessions = int(stats.get("ai_sessions", 0))
 
-          block = f"""### 📊 AI tool use — last 7 days
+          block = f"""### 📊 AI tool use — all time
 
           | Tool | Metric |
           | --- | ---: |
