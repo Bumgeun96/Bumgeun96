@@ -48,7 +48,7 @@ jobs:
           chatgpt_time = sum(
               project.get("total_seconds", 0)
               for project in stats.get("projects", [])
-              if project.get("name", "").casefold() == "chatgpt"
+              if "chatgpt" in project.get("name", "").casefold()
           )
 
           codex = agent_lines("codex")
