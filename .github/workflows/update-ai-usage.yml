@@ -1,0 +1,86 @@
+name: Update AI Usage
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 1 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Render AI stats
+        env:
+          WAKATIME_API_KEY: ${{ secrets.WAKATIME_API_KEY }}
+        run: |
+          python - <<'PY'
+          import base64, json, os, re, urllib.request
+
+          key = os.environ["WAKATIME_API_KEY"]
+          auth = base64.b64encode(key.encode()).decode()
+
+          request = urllib.request.Request(
+              "https://api.wakatime.com/api/v1/users/current/stats/last_7_days",
+              headers={"Authorization": f"Basic {auth}"},
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              stats = json.load(response)["data"]
+
+          def duration(seconds):
+              minutes = int(round(seconds)) // 60
+              return f"{minutes // 60}h {minutes % 60:02d}m"
+
+          def agent_lines(name):
+              return sum(
+                  int(value or 0)
+                  for agent, value in stats.get("ai_agent_line_changes", {}).items()
+                  if name in agent.casefold()
+              )
+
+          chatgpt_time = sum(
+              project.get("total_seconds", 0)
+              for project in stats.get("projects", [])
+              if project.get("name", "").casefold() == "chatgpt"
+          )
+
+          codex = agent_lines("codex")
+          claude = agent_lines("claude")
+          total = int(stats.get("ai_line_changes_total", 0))
+          sessions = int(stats.get("ai_sessions", 0))
+
+          block = f"""### 📊 AI tool use — last 7 days
+
+          | Tool | Metric |
+          | --- | ---: |
+          | ChatGPT (web) | {duration(chatgpt_time)} active time |
+          | Codex | {codex:,} AI-generated lines changed |
+          | Claude | {claude:,} AI-generated lines changed |
+
+          _Total AI coding: {total:,} lines changed · {sessions:,} sessions._
+          """
+
+          path = "README.md"
+          text = open(path, encoding="utf-8").read()
+          start, end = "<!-- AI_STATS:START -->", "<!-- AI_STATS:END -->"
+          text = re.sub(
+              re.escape(start) + r".*?" + re.escape(end),
+              f"{start}\n{block}\n{end}",
+              text,
+              flags=re.S,
+          )
+          open(path, "w", encoding="utf-8").write(text)
+          PY
+
+      - name: Commit README if changed
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "chore: update AI usage stats"
+          git push
