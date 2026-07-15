@@ -6,7 +6,7 @@
 
 | Tool | Metric |
 | --- | ---: |
-| ChatGPT (web) | 0h 00m active time |
+| ChatGPT (web) | 0h 37m active time |
 | Codex | 0 AI-generated lines changed |
 | Claude | 0 AI-generated lines changed |
 
