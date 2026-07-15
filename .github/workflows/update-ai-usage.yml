@@ -27,26 +27,47 @@ jobs:
         run: |
           python - <<'PY'
           import base64
+          import http.client
           import json
           import os
           import re
+          import textwrap
+          import time
+          import urllib.error
           import urllib.parse
           import urllib.request
-          from datetime import date
+          from datetime import date, timedelta
 
           key = os.environ["WAKATIME_API_KEY"]
           auth = base64.b64encode(key.encode()).decode()
           headers = {"Authorization": f"Basic {auth}"}
 
           def get_json(url):
-              request = urllib.request.Request(url, headers=headers)
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  payload = json.load(response)
+              for attempt in range(3):
+                  try:
+                      request = urllib.request.Request(url, headers=headers)
 
-              if "data" not in payload:
-                  raise RuntimeError(f"Unexpected WakaTime response: {payload}")
+                      with urllib.request.urlopen(
+                          request,
+                          timeout=30,
+                      ) as response:
+                          payload = json.load(response)
 
-              return payload["data"]
+                      if "data" not in payload:
+                          raise RuntimeError(
+                              f"Unexpected WakaTime response: {payload}"
+                          )
+
+                      return payload["data"]
+
+                  except (
+                      http.client.RemoteDisconnected,
+                      urllib.error.URLError,
+                  ) as error:
+                      if attempt == 2:
+                          raise error
+
+                      time.sleep(2 * (attempt + 1))
 
           def duration(seconds):
               minutes = int(round(float(seconds or 0))) // 60
@@ -63,8 +84,7 @@ jobs:
 
               return f"{value:,}"
 
-          # 모든 WakaTime 프로젝트의 생성일 중 가장 이른 날부터
-          # 오늘까지의 일별 요약을 가져옵니다.
+          # 가장 오래된 WakaTime 프로젝트 생성일을 찾습니다.
           projects = get_json(
               "https://api.wakatime.com/api/v1/users/current/projects"
           )
@@ -75,19 +95,14 @@ jobs:
               if project.get("created_at")
           ]
 
-          start_date = min(project_dates) if project_dates else "2020-01-01"
-
-          query = urllib.parse.urlencode(
-              {
-                  "start": start_date,
-                  "end": date.today().isoformat(),
-              }
+          start_date = (
+              date.fromisoformat(min(project_dates))
+              if project_dates
+              else date(2020, 1, 1)
           )
 
-          summaries = get_json(
-              "https://api.wakatime.com/api/v1/users/current/summaries?"
-              + query
-          )
+          today = date.today()
+          cursor = start_date
 
           chatgpt_seconds = 0
           chatgpt_input_tokens = 0
@@ -96,22 +111,56 @@ jobs:
           ai_coding_input_tokens = 0
           ai_coding_output_tokens = 0
 
-          # ChatGPT 프로젝트는 별도 표시하고,
-          # 나머지 프로젝트에서 기록된 AI 토큰은 Codex / Claude AI coding으로 합산합니다.
-          for day in summaries:
-              for project in day.get("projects", []):
-                  name = project.get("name", "")
-                  total_seconds = project.get("total_seconds", 0)
-                  input_tokens = project.get("ai_input_tokens", 0)
-                  output_tokens = project.get("ai_output_tokens", 0)
+          # WakaTime이 긴 기간 요청을 끊는 경우가 있어,
+          # 전체 누적 기간을 31일씩 나누어 합산합니다.
+          while cursor <= today:
+              end_date = min(
+                  cursor + timedelta(days=30),
+                  today,
+              )
 
-                  if "chatgpt" in name.casefold():
-                      chatgpt_seconds += total_seconds
-                      chatgpt_input_tokens += input_tokens
-                      chatgpt_output_tokens += output_tokens
-                  else:
-                      ai_coding_input_tokens += input_tokens
-                      ai_coding_output_tokens += output_tokens
+              query = urllib.parse.urlencode(
+                  {
+                      "start": cursor.isoformat(),
+                      "end": end_date.isoformat(),
+                  }
+              )
+
+              summaries = get_json(
+                  "https://api.wakatime.com/api/v1/users/current/"
+                  "summaries?"
+                  + query
+              )
+
+              for day in summaries:
+                  for project in day.get("projects", []):
+                      name = project.get("name", "")
+                      total_seconds = project.get(
+                          "total_seconds",
+                          0,
+                      )
+                      input_tokens = project.get(
+                          "ai_input_tokens",
+                          0,
+                      )
+                      output_tokens = project.get(
+                          "ai_output_tokens",
+                          0,
+                      )
+
+                      if "chatgpt" in name.casefold():
+                          chatgpt_seconds += total_seconds
+                          chatgpt_input_tokens += input_tokens
+                          chatgpt_output_tokens += output_tokens
+                      else:
+                          ai_coding_input_tokens += input_tokens
+                          ai_coding_output_tokens += output_tokens
+
+              cursor = end_date + timedelta(days=1)
+
+              # WakaTime API 요청 속도를 여유 있게 제한합니다.
+              if cursor <= today:
+                  time.sleep(0.3)
 
           chatgpt_total_tokens = (
               chatgpt_input_tokens + chatgpt_output_tokens
@@ -121,7 +170,9 @@ jobs:
               ai_coding_input_tokens + ai_coding_output_tokens
           )
 
-          total_tokens = chatgpt_total_tokens + ai_coding_total_tokens
+          total_tokens = (
+              chatgpt_total_tokens + ai_coding_total_tokens
+          )
 
           print(
               "Token totals:",
@@ -132,14 +183,17 @@ jobs:
               },
           )
 
-          block = f"""### 📊 AI tool use — all time
+          block = textwrap.dedent(
+              f"""\
+              ### 📊 AI tool use — all time
 
-          | Tool | Metric |
-          | --- | ---: |
-          | ChatGPT (web) | {duration(chatgpt_seconds)} active time · {tokens(chatgpt_total_tokens)} tokens |
-          | AI coding (Codex / Claude) | {tokens(ai_coding_total_tokens)} tokens |
-          | Total | {tokens(total_tokens)} tokens |
-          """
+              | Tool | Metric |
+              | --- | ---: |
+              | ChatGPT (web) | {duration(chatgpt_seconds)} active time · {tokens(chatgpt_total_tokens)} tokens |
+              | AI coding (Codex / Claude) | {tokens(ai_coding_total_tokens)} tokens |
+              | Total | {tokens(total_tokens)} tokens |
+              """
+          ).strip()
 
           path = "README.md"
           text = open(path, encoding="utf-8").read()
