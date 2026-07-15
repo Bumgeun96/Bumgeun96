@@ -14,10 +14,6 @@ _Total AI coding: 0 lines changed · 0 sessions._
 
 <!-- AI_STATS:END -->
 
-
-<!-- 아래 코드가 통째로 이미지 카드와 클릭 링크를 만들어냅니다 -->
-[![wakatime](https://wakatime.com/badge/user/4353bfac-1fa1-4a04-b0bb-f36bc42fb2d2.svg)](https://wakatime.com/@4353bfac-1fa1-4a04-b0bb-f36bc42fb2d2)
-<!--
 **Bumgeun96/Bumgeun96** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 
 Here are some ideas to get you started:
