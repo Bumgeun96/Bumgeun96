@@ -8,12 +8,9 @@ I'm particularly interested in improving robot and autonomous-driving policies t
 
 | Tool | Metric |
 | --- | ---: |
-| ChatGPT (web) | 1h 02m active time |
-| Codex | 0 AI-generated lines changed |
-| Claude | 0 AI-generated lines changed |
-
-_Total AI coding: 0 lines changed · 0 sessions._
-
+| ChatGPT (web) | 1h 02m active time · 0 tokens |
+| AI coding (Codex / Claude) | 21.6M tokens |
+| Total | 21.6M tokens |
 <!-- AI_STATS:END -->
 
 **Bumgeun96/Bumgeun96** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
