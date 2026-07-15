@@ -36,7 +36,7 @@ jobs:
           import urllib.error
           import urllib.parse
           import urllib.request
-          from datetime import date, timedelta
+          from datetime import date, datetime, timedelta, timezone
 
           key = os.environ["WAKATIME_API_KEY"]
           auth = base64.b64encode(key.encode()).decode()
@@ -105,14 +105,10 @@ jobs:
           cursor = start_date
 
           chatgpt_seconds = 0
-          chatgpt_input_tokens = 0
-          chatgpt_output_tokens = 0
-
           ai_coding_input_tokens = 0
           ai_coding_output_tokens = 0
 
-          # WakaTime이 긴 기간 요청을 끊는 경우가 있어,
-          # 전체 누적 기간을 31일씩 나누어 합산합니다.
+          # 전체 누적 기간을 31일씩 나누어 조회합니다.
           while cursor <= today:
               end_date = min(
                   cursor + timedelta(days=30),
@@ -149,49 +145,42 @@ jobs:
                       )
 
                       if "chatgpt" in name.casefold():
+                          # ChatGPT 웹은 active time만 표시합니다.
                           chatgpt_seconds += total_seconds
-                          chatgpt_input_tokens += input_tokens
-                          chatgpt_output_tokens += output_tokens
                       else:
+                          # 나머지 AI 코딩 토큰은 Codex / Claude로 합산합니다.
                           ai_coding_input_tokens += input_tokens
                           ai_coding_output_tokens += output_tokens
 
               cursor = end_date + timedelta(days=1)
 
-              # WakaTime API 요청 속도를 여유 있게 제한합니다.
+              # WakaTime API 요청 속도를 제한합니다.
               if cursor <= today:
                   time.sleep(0.3)
-
-          chatgpt_total_tokens = (
-              chatgpt_input_tokens + chatgpt_output_tokens
-          )
 
           ai_coding_total_tokens = (
               ai_coding_input_tokens + ai_coding_output_tokens
           )
 
-          total_tokens = (
-              chatgpt_total_tokens + ai_coding_total_tokens
-          )
+          updated_at = datetime.now(
+              timezone(timedelta(hours=9))
+          ).strftime("%Y-%m-%d %H:%M KST")
 
           print(
-              "Token totals:",
-              {
-                  "chatgpt": chatgpt_total_tokens,
-                  "ai_coding": ai_coding_total_tokens,
-                  "total": total_tokens,
-              },
+              "AI coding tokens:",
+              ai_coding_total_tokens,
           )
 
           block = textwrap.dedent(
               f"""\
               ### 📊 AI tool use — all time
 
+              _Last updated: {updated_at}_
+
               | Tool | Metric |
               | --- | ---: |
-              | ChatGPT (web) | {duration(chatgpt_seconds)} active time · {tokens(chatgpt_total_tokens)} tokens |
+              | ChatGPT (web) | {duration(chatgpt_seconds)} active time |
               | AI coding (Codex / Claude) | {tokens(ai_coding_total_tokens)} tokens |
-              | Total | {tokens(total_tokens)} tokens |
               """
           ).strip()
 
