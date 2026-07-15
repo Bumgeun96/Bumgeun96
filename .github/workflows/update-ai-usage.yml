@@ -52,6 +52,8 @@ jobs:
               "https://api.wakatime.com/api/v1/users/current/stats/all_time"
           )
 
+          print("AI agents:", stats.get("ai_agent_line_changes", {}))
+
           def agent_lines(name):
               return sum(
                   int(value or 0)
