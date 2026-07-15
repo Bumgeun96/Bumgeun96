@@ -2,6 +2,16 @@
 ### 📊 My AI-Driven Development Stats
 
 <!-- AI_STATS:START -->
+### 📊 AI tool use — last 7 days
+
+| Tool | Metric |
+| --- | ---: |
+| ChatGPT (web) | 0h 00m active time |
+| Codex | 0 AI-generated lines changed |
+| Claude | 0 AI-generated lines changed |
+
+_Total AI coding: 0 lines changed · 0 sessions._
+
 <!-- AI_STATS:END -->
 
 
