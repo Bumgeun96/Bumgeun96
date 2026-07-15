@@ -2,7 +2,7 @@
 ### 📊 My AI-Driven Development Stats
 
 <!-- AI_STATS:START -->
-### 📊 AI tool use — last 7 days
+### 📊 AI tool use — all time
 
 | Tool | Metric |
 | --- | ---: |
