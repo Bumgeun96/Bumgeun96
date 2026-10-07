@@ -6,12 +6,12 @@ I'm particularly interested in improving robot and autonomous-driving policies t
 <!-- AI_STATS:START -->
 ### 📊 AI tool use — all time
 
-_Last updated: 2026-10-06 16:36 KST_
+_Last updated: 2026-10-07 16:16 KST_
 
 | Tool | Metric |
 | --- | ---: |
-| ChatGPT (web) | 154h 28m active time |
-| AI coding (Codex / Claude) | 4404.1M tokens |
+| ChatGPT (web) | 154h 54m active time |
+| AI coding (Codex / Claude) | 4417.6M tokens |
 
 ![Weekly AI coding token usage](assets/ai-token-usage.svg)
 <!-- AI_STATS:END -->
