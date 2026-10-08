@@ -6,12 +6,12 @@ My research focuses on data-efficient policy learning through approaches such as
 <!-- AI_STATS:START -->
 ### 📊 AI tool use — all time
 
-_Last updated: 2026-10-07 16:16 KST_
+_Last updated: 2026-10-08 16:27 KST_
 
 | Tool | Metric |
 | --- | ---: |
-| ChatGPT (web) | 154h 54m active time |
-| AI coding (Codex / Claude) | 4417.6M tokens |
+| ChatGPT (web) | 155h 00m active time |
+| AI coding (Codex / Claude) | 4421.1M tokens |
 
 ![Weekly AI coding token usage](assets/ai-token-usage.svg)
 <!-- AI_STATS:END -->
