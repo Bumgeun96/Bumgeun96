@@ -1,7 +1,7 @@
 # Hi, I'm Bumgeun Park 👋
-I'm a Ph.D. candidate at KAIST, working on reinforcement learning for autonomous driving and robotics.
+I'm a Ph.D. candidate at KAIST, developing learning algorithms for reliable decision-making in real-world environments.
 
-I'm particularly interested in improving robot and autonomous-driving policies through behavior cloning and reinforcement learning, with an emphasis on data-efficient and reliable decision-making.
+My research focuses on data-efficient policy learning through approaches such as imitation learning and reinforcement learning, with a particular interest in robotics and autonomous driving.
 
 <!-- AI_STATS:START -->
 ### 📊 AI tool use — all time
